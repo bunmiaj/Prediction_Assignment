@@ -1,0 +1,74 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "Olubunmi Ajala"
+date: "21 September 2014"
+output: html_document
+---
+
+### In this project I analysed Human Activity Recognition (HAR) dataset based on wearable accelerometer to predict the manner in which the people in the dataset do exercise. I utilised the caret package in R to do the classification of data and method used is the randomForest. The prima reason for using randomForest is because of its high accuracy level. The algorith produced from this projecvt is then used to predict 20 test data cases as required in the assignment.
+### underlisted packages are used for the project
+```{r}
+library(Hmisc)
+library(caret)
+library(randomForest)
+library(foreach)
+library(doParallel)
+set.seed(2222)
+options(warn=-1)
+```
+
+### Data Loading and Transformation. Downloaded the datasets using the link provided by Coursera and started working from the directory. Initial transformation was made by converting values of "#DIV/0!" in the dataset into NAs.
+
+```{r}
+TrainingData <- read.csv("/Users/bunmiajala/Documents/pml-training.csv", na.strings=c("#DIV/0!") )
+TestData <- read.csv("/Users/bunmiajala/Documents/pml-testing.csv",na.strings=c("#DIV/0!") )
+```
+### Conversion of required columns into numeric (columns 8 to the end).
+
+```{r}
+for(i in c(8:ncol(TrainingData)-1)) {TrainingData[,i] = as.numeric(as.character(TrainingData[,i]))}
+
+for(i in c(8:ncol(TestData)-1)) {TestData[,i] = as.numeric(as.character(TestData[,i]))}
+```
+### Utilise only the complete rows by eliminating blank rows. Data was anonnymised by removing users, timestamps and windows.
+
+```{r}
+NeededSet <- colnames(TrainingData[colSums(is.na(TrainingData)) == 0])[-(1:7)]
+NeededSet
+```
+### Build model data from the needed set.
+```{r}
+ModelData <- TrainingData[NeededSet]
+```
+### Classify our data into training and test sets
+
+```{r}
+Entity <- createDataPartition(y=ModelData$classe, p=0.75, list=FALSE )
+training <- ModelData[Entity,]
+testing <- ModelData[-Entity,]
+```
+### I made use of parallel processing with randomForest to speed up prediction. Built 5 random forests with 150 trees each.
+
+```{r}
+registerDoParallel()
+x <- training[-ncol(training)]
+y <- training$classe
+rf <- foreach(ntree=rep(150, 6), .combine=randomForest::combine, .packages='randomForest') %dopar% {
+        randomForest(x, y, ntree=ntree) 
+}
+```
+### Error reports for the two sets of data (training and test data).
+
+```{r}
+Predictions1 <- predict(rf, newdata=training)
+confusionMatrix(Predictions1,training$classe)
+```
+
+```{r}
+Predictions2 <- predict(rf, newdata=testing)
+confusionMatrix(Predictions2,testing$classe)
+```
+### Conclusion
+
+The confusion matrix shows high accuracy level to justify the choice of randomForest. Comparism of the prediction with the publication of groupware of 99.6% ia also highly accurate. This is a highly accurate prediction.
+
